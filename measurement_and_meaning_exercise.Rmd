@@ -14,5 +14,61 @@ to writing functions in R). Then, simulate a random variable and write a loop th
 this variable and computes the CV.
 
 ```{r}
+# Function that computes the CV of a variable
+# SD = Standard deviation
+# E = mean (mathematical term: expected, which means the mean in this case)
+
+compute_CV <- function(E, SD) {
+  
+  CV <- SD/E
+  CV_95_conf_intv <- quantile(CV, c(0.025, 0.975))
+  
+  return(CV_95_conf_intv)
+}
+
+```
+
+```{r}
+set.seed(12)
+x <- rnorm(100, mean = 10, sd = 2)
+boot_mean <- NULL
+boot_SD <- NULL
+  for (i in 1:1000) {
+    # create 1000 samples with as many data points as in x (bootstraping)
+  samples_x <- sample(x, replace = TRUE)
+  boot_mean[i] <- mean(samples_x)
+  boot_SD[i] <- sd(samples_x)
+  }
+
+compute_CV(boot_mean, boot_SD)
+```
+
+
+**Optional exercise:**\
+The proportional properties of the natural log
+Use simulated data to show the close relationship between the SD of log-transformed data and the CV on
+arithmetic scale. You may need e.g. the rnorm function and a for-loop to achieve this. One strategy would
+be to start with comparing the two values for a single case, then build a matrix to hold the paired values,
+and finally use a for-loop to populate the matrix. See Appendix 1 for help to get started with programming.
+The following figure illustrates the kind of pattern we expect
+
+```{r}
+h <- rnorm(100, mean = 10, sd = 2)
+
+boot_mean_h <- NULL
+boot_SD_h <- NULL
+boot_log_SD_h <- NULL
+
+for (i in 1:1000) {
+samples_h <- sample(h, replace = TRUE)
+boot_mean_h[i] <- mean(samples_h)
+boot_SD_h[i] <- sd(samples_h)
+boot_log_SD_h[i] <- sd(log(samples_h))
+}
+
+CV_h <- boot_SD_h/boot_mean_h
+
+plot(CV_h, boot_log_SD_h)
+abline(0,1)
 
 ```
