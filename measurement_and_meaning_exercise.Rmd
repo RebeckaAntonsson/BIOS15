@@ -1,0 +1,18 @@
+---
+title: "Measurement_and_meaning"
+output: html_document
+date: "2025-11-05"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+EXERCISE: Use non-parametric bootstrapping to derive a 95% confidence interval for the CV of a variable.
+Start by writing a function that computes the CV for a variable (see the Appendix for a brief introduction
+to writing functions in R). Then, simulate a random variable and write a loop that samples many times from
+this variable and computes the CV.
+
+```{r}
+
+```
