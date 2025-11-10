@@ -7,11 +7,45 @@ date: "2025-11-10"
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+# Methods
+
+# Results
+
+# Code 
+
+## Load data
+```{r}
+birds = read.csv("bird_allometry.csv")
+head(birds)
+```
+
 
 ```{r}
+# Split data in males and females
+males = birds[birds$Sex=="m",]
+females = birds[birds$Sex=="f",]
+```
+
+
+```{r}
+#Then, we fit linear models to log-transformed brain- and body-sizes.
+mm = lm(log(brain_mass)~log(body_mass), data=males)
+mf = lm(log(brain_mass)~log(body_mass), data=females)
 
 ```
 
+```{r}
+#After checking that the residuals look OK, we look at the model fit #for the males.
+hist(residuals(mm))
+summary(mm)
+```
+
+```{r}
+# Females
+hist(residuals(mf))
+
+
+```
 
 ```{r}
 
