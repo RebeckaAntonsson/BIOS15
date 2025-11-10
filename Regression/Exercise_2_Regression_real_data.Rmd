@@ -7,11 +7,43 @@ date: "2025-11-10"
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-# Methods
 
-# Results
+# Optional exercise 1
+OPTIONAL EXERCISE: Use non-parametric bootstrapping to derive a standard error for the slope of the
+linear regression above. To do so, produce a data frame holding the x and y values, sample from this dataset
+(with replacement), fit the model, and save each estimate for the slope of y on x. The samples will give
+the sampling distribution for the slope, and its standard deviation will provide an estimate of the standard
+error.
 
-# Code 
+```{r}
+set.seed(85)
+x = rnorm(n=200, mean=10, sd=2)
+y = 0.4*x + rnorm(200, 0, 1)
+
+df = data.frame(x, y)
+head(df) 
+```
+
+```{r}
+y_boot <-  NULL
+sample <- NULL
+for (i in 1:100) {
+sample[i] <- sample(x, replace = TRUE)
+beta_1 <- 0.4 
+beta_0 <- rnorm(200, 0, 1)
+y_boot[i] <- beta_1*sample + beta_0
+}
+
+
+```
+
+```{r}
+y_mod <- lm(y_boot~sample)
+summary(y_mod)
+```
+
+# Exercise 2
+
 
 ## Load data
 ```{r}
@@ -19,11 +51,29 @@ birds = read.csv("bird_allometry.csv")
 head(birds)
 ```
 
+```{r}
+library(dplyr)
+library(ggplot2)
+
+avg_brain <- males %>%
+  group_by(Genus_Species) %>%
+  summarise(mean_brain_mass = mean(brain_mass, na.rm = TRUE))
+
+ggplot(avg_brain, aes(x = Genus_Species, y = mean_brain_mass)) +
+  geom_col() +
+  xlab("Species") +
+  ylab("Mean brain mass") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+```
+
 
 ```{r}
 # Split data in males and females
 males = birds[birds$Sex=="m",]
 females = birds[birds$Sex=="f",]
+head(males)
 ```
 
 
@@ -39,14 +89,83 @@ mf = lm(log(brain_mass)~log(body_mass), data=females)
 hist(residuals(mm))
 summary(mm)
 ```
-
+Scatterplot showing the results
 ```{r}
-# Females
-hist(residuals(mf))
-
+library(ggplot2)
+ggplot(males, aes(x = males$brain_mass, y = males$body_mass)) +
+  geom_point() 
 
 ```
 
 ```{r}
+ggplot(males, aes(x = log(body_mass), y = log(brain_mass))) +
+  geom_point() +
+geom_smooth(method = "lm", se = FALSE, color = "red") +
+  xlab("log(body mass)") +
+  ylab("log(brain mass)") +
+  ggtitle("log relationship between brain and body mass for male birds")
+```
 
+```{r}
+# Females
+hist(residuals(mf))
+summary(mf)
+
+```
+
+```{r}
+ggplot(females, aes(x = log(body_mass), y = log(brain_mass))) +
+  geom_point() +
+geom_smooth(method = "lm", se = FALSE, color = "red") +
+  xlab("log(body mass)") +
+  ylab("log(brain mass)") +
+  ggtitle("log relationship between brain and body mass for female birds")
+```
+
+# Optional exercise 2
+Optional exercise: How error in x- and y-variables affect the slope
+The standard linear model assumes that the predictor variable is measured without error. When there is
+measurement error, this can lead to a bias in the estimated slope. Simulate data with measurement error in
+the predictor, and produce a plot showing the effect on the estimated slope. As always with programming
+exercises, start by performing the necessary operations once, before building loops or functions. Here, you
+can start by simulating some data, and fit the model with no measurement error. Then, add some error,
+and see what happens to the slope estimate.
+
+```{r}
+set.seed(12)
+x = rnorm(n=200, mean=10, sd=2)
+y = rnorm(200, 0, 1)
+
+df = data.frame(x, y)
+head(df) 
+
+```
+
+```{r}
+mod <- lm(df)
+summary(mod)
+```
+Add messurment error
+```{r}
+head(y)
+hist(y)
+for (i in 1:20) {
+  y[i] = 3
+}
+for (i in 60:80) {
+  y[i] = -1.7
+}
+
+hist(y)
+df_skew = data.frame(x, y)
+```
+Make new regression line
+```{r}
+mod_skew <- lm(df_skew)
+summary(mod_skew)
+```
+```{r}
+ggplot(df_skew, aes(x, y)) +
+  geom_point() +
+geom_smooth(method = "lm", se = FALSE, color = "red")
 ```
