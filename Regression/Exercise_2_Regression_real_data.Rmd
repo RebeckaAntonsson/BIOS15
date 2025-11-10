@@ -1,0 +1,18 @@
+---
+title: "Exercise Fit a linear regression to real data"
+output: html_document
+date: "2025-11-10"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+
+```
+
+
+```{r}
+
+```
