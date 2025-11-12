@@ -1,0 +1,76 @@
+---
+title: "ANOVA Butterfiles"
+output: html_document
+date: "2025-11-12"
+---
+
+
+The following data are from an experiment where female butterflies reared on two different host plants were
+allowed to oviposit on the same two host plants. The data include developmental time for the larvae, the
+adult weight, and the growth rate of the larvae.
+Analyse the data to assess effects of maternal vs. larval host plant on one or more response variable. Interpret
+the results and produce a nice plot to illustrate.
+
+Load data
+```{r}
+butterflies <- read.csv("butterflies.csv")
+head(butterflies)
+
+```
+
+```{r}
+# Check how many of each of the two Maternal hosts
+unique(butterflies$MaternalHost)
+
+nrow(butterflies[butterflies$MaternalHost == "Barbarea",])
+
+nrow(butterflies[butterflies$MaternalHost == "Berteroa",])
+
+
+```
+As a first step, let us compute some summary statistics, like the mean development time for each combination
+of larval and maternal host plant.
+```{r}
+butterflies$MaternalHost = paste0(butterflies$MaternalHost, "M")
+butterflies$LarvalHost = paste0(butterflies$LarvalHost, "L")
+means = tapply(butterflies$DevelopmentTime, list(butterflies$MaternalHost, butterflies$LarvalHost), mean)
+means
+
+```
+Make boxplots of the 4 groups
+```{r}
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+
+small_butterflies <- select(butterflies, c("LarvalHost","MaternalHost", "DevelopmentTime"))
+head(small_butterflies)
+
+```
+```{r}
+# Reshape to long format
+long_small_butterflies <- small_butterflies %>%
+  pivot_longer(cols = c(LarvalHost, MaternalHost),
+               names_to = "HostType",
+               values_to = "HostPlant")
+head(long_small_butterflies)
+
+```
+```{r}
+ggplot(long_small_butterflies, aes(x = interaction(HostType, HostPlant), y = DevelopmentTime)) +
+  geom_boxplot() +
+labs(x = "Host type and plant", y = "Development time") +
+  
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+Make the ANOVA model
+```{r}
+y <-butterflies$DevelopmentTime
+factor1 <- butterflies$MaternalHost
+factor2 <- butterflies$LarvalHost
+m <- lm(y ~ factor1 * factor2)
+summary(m)
+
+```
