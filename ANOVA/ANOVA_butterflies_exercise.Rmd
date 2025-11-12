@@ -2,42 +2,87 @@
 title: "ANOVA Butterfiles"
 output: html_document
 date: "2025-11-12"
+editor_options: 
+  markdown: 
+    wrap: 72
 ---
 
+The following data are from an experiment where female butterflies
+reared on two different host plants were allowed to oviposit on the same
+two host plants. The data include developmental time for the larvae, the
+adult weight, and the growth rate of the larvae. Analyse the data to
+assess effects of maternal vs. larval host plant on one or more response
+variable. Interpret the results and produce a nice plot to illustrate.
 
-The following data are from an experiment where female butterflies reared on two different host plants were
-allowed to oviposit on the same two host plants. The data include developmental time for the larvae, the
-adult weight, and the growth rate of the larvae.
-Analyse the data to assess effects of maternal vs. larval host plant on one or more response variable. Interpret
-the results and produce a nice plot to illustrate.
+## Load data
 
-Load data
 ```{r}
 butterflies <- read.csv("butterflies.csv")
 head(butterflies)
-
 ```
 
 ```{r}
 # Check how many of each of the two Maternal hosts
 unique(butterflies$MaternalHost)
 
-nrow(butterflies[butterflies$MaternalHost == "Barbarea",])
+cat("Maternal Barbarea",nrow(butterflies[butterflies$MaternalHost == "Barbarea",]),"\n")
 
-nrow(butterflies[butterflies$MaternalHost == "Berteroa",])
+cat("Maternal Berteroa", nrow(butterflies[butterflies$MaternalHost == "Berteroa",]),"\n")
 
+cat("Larval Barbarea",nrow(butterflies[butterflies$LarvalHost == "Barbarea",]),"\n")
 
+cat("Larval Berteroa", nrow(butterflies[butterflies$LarvalHost == "Berteroa",]))
 ```
-As a first step, let us compute some summary statistics, like the mean development time for each combination
-of larval and maternal host plant.
+
+## ANOVA
+
+OBS now I am using the base R version data frame and not the tibble i
+created with dplyr
+
 ```{r}
-butterflies$MaternalHost = paste0(butterflies$MaternalHost, "M")
-butterflies$LarvalHost = paste0(butterflies$LarvalHost, "L")
-means = tapply(butterflies$DevelopmentTime, list(butterflies$MaternalHost, butterflies$LarvalHost), mean)
-means
+y <-butterflies$DevelopmentTime
+factor_maternal <- butterflies$MaternalHost
+factor_larval <- butterflies$LarvalHost
+m <- lm(y ~ factor_maternal * factor_larval)
 
+anova(m)
 ```
-Make boxplots of the 4 groups
+
+Here the F value is absolute highest for the group larval, meaning that
+this group has the highest influence on the development time. The group
+maternal also has a high value and also affects the development time.
+The interaction between the two groups is much smaller, but this is also
+expected for a F value for an interaction. So, the interaction has an
+effect. Next I will look at the summary, to see what the effect of the
+larval might mean.
+
+Run the ANOVA
+
+```{r}
+summary(m)
+```
+
+In the summary\
+Intercept means Maternal Barbarea and Larval Barbarea\
+factor_maternalBerteroaM means Maternal Berteroa and Larval Barbarea\
+factor_larvalBerteroaL means Maternal Barbarea and Larval Berteroa\
+factor_maternalBerteroaM:factor_larvalBerteroaL means Maternal Berteroa
+and Larval Berteroa\
+\
+The lowest development time is when the maternal plant is Barbarea and
+that the larval stays there (\~21.69 days), second lowest is when the
+maternal plant is Berteroa and that the larval moves to a Barbarea plant
+(\~23.5 days). This suggests that the Barbarea is the optimal one for as
+short development time as possible. It also makes sense because from the
+ANOVA we know that which plant the butterfly is on during its larval
+period has the most effect on the development time. Longest development
+time is when the butterfly starts on a Barbarea and moves to a Berteroa
+for its larvel phase (this is \~27 development days)
+
+# Visualize results
+I will make a plot with 4 boxplots. One for Maternal_Barbarea, Maternal_Berteroa , Larval_Barbarea and Larval_Berteroa
+
+
 ```{r}
 library(ggplot2)
 library(tidyr)
@@ -47,6 +92,7 @@ small_butterflies <- select(butterflies, c("LarvalHost","MaternalHost", "Develop
 head(small_butterflies)
 
 ```
+
 ```{r}
 # Reshape to long format
 long_small_butterflies <- small_butterflies %>%
@@ -56,21 +102,16 @@ long_small_butterflies <- small_butterflies %>%
 head(long_small_butterflies)
 
 ```
+
 ```{r}
-ggplot(long_small_butterflies, aes(x = interaction(HostType, HostPlant), y = DevelopmentTime)) +
+ggplot(long_small_butterflies, aes(
+  x = interaction(HostType, HostPlant), 
+  y = DevelopmentTime,
+  fill = HostType)) +
   geom_boxplot() +
-labs(x = "Host type and plant", y = "Development time") +
-  
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-```
-
-Make the ANOVA model
-```{r}
-y <-butterflies$DevelopmentTime
-factor1 <- butterflies$MaternalHost
-factor2 <- butterflies$LarvalHost
-m <- lm(y ~ factor1 * factor2)
-summary(m)
+labs(y = "Development time", x = NULL) +
+  scale_fill_discrete(labels=c('Larval', 'Maternal')) +
+  theme(axis.text.x = element_blank()) +
+  facet_wrap(~ HostPlant, scales = "free_x", nrow = 1)
 
 ```
