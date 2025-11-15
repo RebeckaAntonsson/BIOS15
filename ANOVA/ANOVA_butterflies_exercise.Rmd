@@ -56,7 +56,6 @@ expected for a F value for an interaction. So, the interaction has an
 effect. Next I will look at the summary, to see what the effect of the
 larval might mean.
 
-Run the ANOVA
 
 ```{r}
 summary(m)
