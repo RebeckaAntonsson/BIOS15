@@ -111,7 +111,14 @@ ggplot(long_small_butterflies, aes(
   geom_boxplot() +
 labs(y = "Development time", x = NULL) +
   scale_fill_discrete(labels=c('Larval', 'Maternal')) +
-  theme(axis.text.x = element_blank()) +
-  facet_wrap(~ HostPlant, scales = "free_x", nrow = 1)
+  facet_wrap(~ HostPlant, scales = "free_x", nrow = 1) +
+  theme(axis.text.x = element_blank(),
+        axis.text.y = element_text(size=12),
+        axis.title.y = element_text(size=20),
+        legend.text = element_text(size = 15),
+        legend.title = element_text(face="bold",size=15),
+        # Barbarea and Berteroa size
+        strip.text = element_text(size = 15)) 
+  
 
 ```
