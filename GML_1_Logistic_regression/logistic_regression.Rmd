@@ -2,6 +2,9 @@
 title: 'GML 1: Logistic regression'
 output: html_document
 date: "2025-11-19"
+editor_options: 
+  markdown: 
+    wrap: 72
 ---
 
 ```{r setup, include=FALSE}
@@ -9,17 +12,226 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 
+# Logistic regression
+
+## EXERCISE:\
+Replicate the plot below. To produce a regression line, we define some
+new x-values that spans the data range along the x-axis, then obtain
+predicted values yˆ (using the model coefficients), and finally
+transform these values to the probability scale to obtain the predicted
+probabilities pˆ.
+
+```{r}
+logit = function(x) log(x/(1-x))
+invlogit = function(x) 1/(1+exp(-x))
+
+x = rnorm(200, 10, 3)
+eta = -2 + 0.4*x + rnorm(200, 0, 2)
+p = invlogit(eta)
+y = rbinom(200, 1, p)
+
+m = glm(y~x, family=binomial(link="logit"))
+
+coefs = summary(m)$coef
+x_pred = seq(from=min(x), to=max(x), by=0.01)
+y_hat = coefs[1,1] + coefs[2,1]*x_pred
+p_hat = invlogit(y_hat)
+```
+
+```{r}
+plot(x_pred, p_hat, type = "l", ylim = c(0,1))
+points(x,y, pch = 3)
+abline(v = c(5), h = c(0.5), lty = 2)
+
+```
+
+## Data exercise: seed germination\
+The following data are from a study investigating patterns of seed
+dormancy in a plant. In this plant species, seeds needs to stay in dry
+conditions for a specific amount of time before they are ready to
+germinate, a process known as ‘after-ripening’. Once the seeds are ripe
+they will normally germinate when exposed to favourable (moist)
+conditions. After different duration of after-ripening, the seeds were
+sown on moist soil and their germination success (proportion of seeds
+germinated) recorded. The seeds came from four different populations,
+and were weighed (in mg) prior to sowing.\
+The variables in the data are as follows:\ 
+• pop = Population ID\
+• mother = Maternal plant ID\
+• crossID = Unique cross identifier\
+• blocktray = Sowing tray (experimental block)\
+• timetosowing = Time in days from seed dispersal to watering\
+• MCseed = Population-mean-centered seed mass in mg\
+• nseed = Number of seeds sown\
+• germ2 = Proportion of seeds germinated\
+\
+Analyse the data to estimate the pattern of germination success in response to variation in the duration of
+after-ripening. Are the patterns similar in different populations? Are there other factors affecting germination success? Produce relevant summary statistics, parameter estimates, and graphs.
+
+
+```{r}
+#Load data
+seed_gems <- read.csv("dormancy.csv")
+head(seed_gems)
+names(seed_gems)
+unique(seed_gems$pop)
+nrow(seed_gems)
+sum(seed_gems$pop == "CC")
+```
+
 ```{r}
 
 ```
 
+As a suggested start, the following lines fit a simple model to data from one population using two different
+methods. Note that the model fit is the same (the log Likelihood of the two models is identical).
 
 ```{r}
+pop_CC = seed_gems[seed_gems$pop=="CC",]
+germ = pop_CC$germ2 * pop_CC$nseed #Successes
+notgerm = pop_CC$nseed - germ #Failures
+
+mod1 = glm(cbind(germ, notgerm) ~ timetosowing, "binomial", data=pop_CC)
+
+mod2 = glm(germ2 ~ timetosowing, "binomial", weights=nseed, data=pop_CC)
+
+logLik(mod1) == logLik(mod2)
 
 ```
 
 ```{r}
+summary(mod2)
+
+x <- pop_CC$timetosowing
+y <- pop_CC$germ2
+
+coefs = summary(mod2)$coef
+print("The coefficients")
+coefs[1,1]
+coefs[2,1]
+
+# Create continous x for predicting y, and plotting
+x_pred = seq(from=min(x), to=max(x), by=0.01)
+print("printing x and x_pred")
+head(sort(x))
+head(sort(x_pred))
+hist(x)
+hist(x_pred, breaks = 200)
+
+# Calculate the regression line using B0 and B1 (=the coefficients). The regression line corresponds to the predictons of y (=y_hat)
+y_hat = coefs[1,1] + coefs[2,1]*x_pred
+
+# Take the inverse logit of y_hat, to get the acctual predicted values (since we did logit on the x before predicting)
+p_hat = invlogit(y_hat)
+
+```
+Now plot the results
+```{r}
+# Calculate for what x the predicted values have the probability of 50%. Meaning for what timesowing, there is a 50% chance of germination
+sowing_50 <- -(coefs[1,1])/coefs[2,1]
+
+
+plot(x_pred, p_hat, type = "l", col = "red", ylim = c(0,1))
+points(pop_CC$timetosowing, pop_CC$germ2, pch = 3)
+abline(h = 0.5, v = sowing_50, lty = 2)
+
+```
+
+Make one model for each population
+
+```{r}
+unique(seed_gems$pop)
 
 ```
 
 
+
+```{r}
+pop_T = seed_gems[seed_gems$pop=="T",]
+mod_T = glm(germ2 ~ timetosowing, "binomial", weights=nseed, data=pop_T)
+
+summary(mod_T)
+
+x_T <- pop_T$timetosowing
+y_T <- pop_T$germ2
+
+coefs_T = summary(mod_T)$coef
+print("The coefficients")
+coefs_T[1,1]
+coefs_T[2,1]
+
+# Create continous x for predicting y, and plotting
+x_T_pred = seq(from=min(x_T), to=max(x_T), by=0.01)
+
+# Calculate the regression line using B0 and B1 (=the coefficients). The regression line corresponds to the predictons of y (=y_hat)
+y_T_hat = coefs_T[1,1] + coefs_T[2,1]*x_T_pred
+
+# Take the inverse logit of y_hat, to get the actual predicted values (since we did logit on the x before predicting)
+p_T_hat = invlogit(y_T_hat)
+```
+
+```{r}
+pop_PM = seed_gems[seed_gems$pop=="PM",]
+mod_PM = glm(germ2 ~ timetosowing, "binomial", weights=nseed, data=pop_PM)
+
+summary(mod_PM)
+
+x_PM <- pop_T$timetosowing
+y_PM <- pop_T$germ2
+
+coefs_PM = summary(mod_PM)$coef
+print("The coefficients")
+coefs_PM[1,1]
+coefs_PM[2,1]
+
+# Create continous x for predicting y, and plotting
+x_PM_pred = seq(from=min(x_PM), to=max(x_PM), by=0.01)
+
+# Calculate the regression line using B0 and B1 (=the coefficients). The regression line corresponds to the predictons of y (=y_hat)
+y_PM_hat = coefs_PM[1,1] + coefs_PM[2,1]*x_PM_pred
+
+# Take the inverse logit of y_hat, to get the actual predicted values (since we did logit on the x before predicting)
+p_PM_hat = invlogit(y_PM_hat)
+
+```
+
+```{r}
+pop_LM = seed_gems[seed_gems$pop=="LM",]
+mod_LM = glm(germ2 ~ timetosowing, "binomial", weights=nseed, data=pop_LM)
+
+summary(mod_LM)
+
+x_LM <- pop_T$timetosowing
+y_LM <- pop_T$germ2
+
+coefs_LM = summary(mod_LM)$coef
+print("The coefficients")
+coefs_LM[1,1]
+coefs_LM[2,1]
+
+# Create continous x for predicting y, and plotting
+x_LM_pred = seq(from=min(x_LM), to=max(x_LM), by=0.01)
+
+# Calculate the regression line using B0 and B1 (=the coefficients). The regression line corresponds to the predictons of y (=y_hat)
+y_LM_hat = coefs_LM[1,1] + coefs_LM[2,1]*x_LM_pred
+
+# Take the inverse logit of y_hat, to get the actual predicted values (since we did logit on the x before predicting)
+p_LM_hat = invlogit(y_LM_hat)
+
+```
+
+Now plot all the populations in one plot
+```{r}
+plot(x_pred, p_hat, type = "l", col = "red", ylim = c(0,1), 
+     xlab = "Time before seeding",
+     ylab = "Predicted probability of germanisation")
+lines(x_T_pred, p_T_hat, col = "blue")
+lines(x_PM_pred, p_PM_hat, col = "darkgreen")
+lines(x_LM_pred, p_LM_hat, col = "orange")
+legend(x = "topleft", 
+       bty = "n",
+       cex = 0.6,
+       title = "Populations", 
+       legend = c("CC", "T", "PM", "LM"), 
+       fill = c("red", "blue", "darkgreen", "orange"))
+```
