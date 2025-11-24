@@ -1,0 +1,85 @@
+---
+title: "GML Poisson"
+output: html_document
+date: "2025-11-24"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Load data
+```{r}
+bees <- read.csv("Eulaema.csv")
+head(bees)
+```
+
+## Initial plotting
+```{r}
+hist(bees$Eulaema_nigrita)
+plot(bees$altitude, bees$Eulaema_nigrita, pch = 16, cex = 0.6)
+plot(bees$MAT, bees$Eulaema_nigrita, pch = 16, cex = 0.6)
+plot(bees$effort, bees$Eulaema_nigrita, pch = 16, cex = 0.6)
+```
+
+## Fit the poisson model 
+```{r}
+m = glm(Eulaema_nigrita~effort+altitude+MAT, family = "poisson", data=bees)
+summary(m)
+```
+We can see here that the residual deviance is 16998 and the degress od freedom is 174. So the deviance is much larger than the degrees of freedom which means that the variance increases unproportional to the mean. Therefore we will have to use a negative binomal error distribution instead. 
+\
+## Negative binomal
+
+```{r}
+library(MASS)
+m = glm.nb(Eulaema_nigrita~effort+altitude+MAT, data=bees)
+summary(m)
+```
+
+From this model summary we can see that the residual deviance and the degrees of freedom are much closer and thus this model is a better fit.\
+\
+Side note : When we make a model with several predictors like this, what the model does is that it makes the regression for each one of the predictors while holding the others constant. SO it is not a combined regression for all 3 predicors, but its more liek three models that holds one predictor constant and then makes three predictions. 
+## Plot the results
+Effort
+MAT
+Altitude
+```{r}
+newdata = data.frame(effort = ..., altitude = ..., MAT = ...)
+
+# create a continuous list of values for the first x (effort)
+x_cont_effort <- seq(min(bees$effort), max(bees$effort), 0.01)
+y_hat_effort <- predict(m, 
+                        newdata = list(x=x_cont_effort), 
+                        type = "response")
+plot(y_hat_effort)
+```
+
+
+```{r}
+plot(bees$effort, bees$Eulaema_nigrita)
+
+```
+
+```{r}
+#install.packages("ggeffects")
+library(ggeffects)
+library(ggplot2)
+```
+```{r}
+plot(ggpredict(m, terms = "effort"))
+
+```
+
+```{r}
+plot(ggpredict(m, terms = "MAT"))
+points(bees$MAT, bees$Eulaema_nigrita)
+
+```
+
+```{r}
+plot(ggpredict(m, terms = "altitude"))
+
+```
+
