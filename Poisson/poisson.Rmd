@@ -24,6 +24,7 @@ plot(bees$effort, bees$Eulaema_nigrita, pch = 16, cex = 0.6)
 ```
 
 ## Fit the poisson model 
+The model automatically transforms the data with the natrual logratihm because the choosen family is poisson.
 ```{r}
 m = glm(Eulaema_nigrita~effort+altitude+MAT, family = "poisson", data=bees)
 summary(m)
@@ -34,9 +35,17 @@ We can see here that the residual deviance is 16998 and the degress od freedom i
 
 ```{r}
 library(MASS)
+library(MuMIn)
 m = glm.nb(Eulaema_nigrita~effort+altitude+MAT, data=bees)
 summary(m)
+# Calculate the pseudo R square
+r.squaredGLMM(m)
+
+# Calculate pseudo r square in a different way
+print("How far the model is from a perfect model, where 1 is the optimal number: ")
+1-m$deviance / m$null.deviance
 ```
+When looking at the estimates. The intercept is when all 3 predictors are 0. The estimated value for effort is 0.477, the exponential of this is 1.611, meaning that when the effort increases by 1 the bee count increases with 61%. For Altidude this number is (exp(0.00175) = 1.00175) 0.2% and for MAT it is (exp(0.0349) = 1.0355) 3.6%. Standard deviation is around 13% for effort, 25% for altitude and 21% for MAT. 
 
 From this model summary we can see that the residual deviance and the degrees of freedom are much closer and thus this model is a better fit.\
 \
@@ -45,41 +54,83 @@ Side note : When we make a model with several predictors like this, what the mod
 Effort
 MAT
 Altitude
-```{r}
-newdata = data.frame(effort = ..., altitude = ..., MAT = ...)
 
-# create a continuous list of values for the first x (effort)
-x_cont_effort <- seq(min(bees$effort), max(bees$effort), 0.01)
-y_hat_effort <- predict(m, 
-                        newdata = list(x=x_cont_effort), 
-                        type = "response")
-plot(y_hat_effort)
-```
-
-
-```{r}
-plot(bees$effort, bees$Eulaema_nigrita)
-
-```
-
+Install and load packaged that are needed to make predictions and then plot the results.
 ```{r}
 #install.packages("ggeffects")
 library(ggeffects)
 library(ggplot2)
 ```
+
+Make a prediction of y (bee counts) from the predictor "effort". This is done while holding the predictors MAT and altitude constant. This ggpredict function does the same as the base R predict function if you use a datagrid as newdata (which you do when you have multiple predictors)\
+When the model is fitted the data is automatically log linked for this model using the natural logratim. When using the ggpredict the data is also automatically transformed back to its original scale. 
 ```{r}
-plot(ggpredict(m, terms = "effort"))
+pred_effort <-  ggpredict(m, terms = "effort")
+pred_effort
+```
+### Effort
+Make the plot for predicted bee count plotted against effort.
+```{r}
+# First plot the predicted counts based on the effort level, this is the natural logarithm regression line
+ggplot(pred_effort, aes(x = x, y = predicted)) +
+  geom_line(size = 1) + # make the plot a line
+  # ribbon is the confidence interval. The data used here is the pred_effort, which has a column conf.low and conf.high. Alpha 0.2 gives the transparacy of the ribbon
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2) +
+  # Below points fromt the raw data is added to the plot. 
+  geom_point(data = bees, aes(x = effort, y = Eulaema_nigrita),
+             inherit.aes = FALSE) +
+  labs(x = "Effort",
+       y = "Predicted bee count") +
+  theme(axis.title =element_text(size=20))
+
+```
+### MAT
+```{r}
+# Make the prediction with MAT as preditor and effort and altitude held constant
+pred_MAT <-  ggpredict(m, terms = "MAT")
+pred_MAT
+
+
+# Plot the results
+# Plot prediction
+ggplot(pred_MAT, aes(x = x, y = predicted)) +
+  geom_line(size = 1) + # make the plot a line
+  # Add confidence interval
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2) +
+  # add raw data points 
+  geom_point(data = bees, aes(x = MAT, y = Eulaema_nigrita),
+             inherit.aes = FALSE) +
+  labs(x = "Mean Average Temperature",
+       y = "Predicted bee count") +
+  theme(axis.title =element_text(size=20))
+
+```
+### Altitude
+
+```{r}
+# Make the prediction with altitude as predictor and effort and MAT held constant
+pred_altitude <-  ggpredict(m, terms = "altitude")
+pred_altitude
+
+
+# Plot the results
+# Plot prediction
+ggplot(pred_altitude, aes(x = x, y = predicted)) +
+  geom_line(size = 1) + # make the plot a line
+  # Add confidence interval
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2) +
+  # add raw data points 
+  geom_point(data = bees, aes(x = altitude, y = Eulaema_nigrita),
+             inherit.aes = FALSE) +
+  labs(x = "Altitude",
+       y = "Predicted bee count") +
+  theme(axis.title =element_text(size=20))
 
 ```
 
-```{r}
-plot(ggpredict(m, terms = "MAT"))
-points(bees$MAT, bees$Eulaema_nigrita)
-
-```
 
 ```{r}
-plot(ggpredict(m, terms = "altitude"))
+
 
 ```
 
