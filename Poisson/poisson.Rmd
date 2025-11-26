@@ -8,14 +8,17 @@ date: "2025-11-24"
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-
 ## Load data
+
 ```{r}
 bees <- read.csv("Eulaema.csv")
 head(bees)
 ```
 
 ## Initial plotting
+
+Here a qqplot for the residuals could be added.
+
 ```{r}
 hist(bees$Eulaema_nigrita)
 plot(bees$altitude, bees$Eulaema_nigrita, pch = 16, cex = 0.6)
@@ -23,15 +26,17 @@ plot(bees$MAT, bees$Eulaema_nigrita, pch = 16, cex = 0.6)
 plot(bees$effort, bees$Eulaema_nigrita, pch = 16, cex = 0.6)
 ```
 
-## Fit the poisson model 
+## Fit the poisson model
+
 The model automatically transforms the data with the natrual logratihm because the choosen family is poisson.
+
 ```{r}
 m = glm(Eulaema_nigrita~effort+altitude+MAT, family = "poisson", data=bees)
 summary(m)
 ```
-We can see here that the residual deviance is 16998 and the degress od freedom is 174. So the deviance is much larger than the degrees of freedom which means that the variance increases unproportional to the mean. Therefore we will have to use a negative binomal error distribution instead. 
-\
-## Negative binomal
+
+We can see here that the residual deviance is 16998 and the degress od freedom is 174. So the deviance is much larger than the degrees of freedom which means that the variance increases unproportional to the mean. Therefore we will have to use a negative binomal error distribution instead.\
+\## Negative binomal
 
 ```{r}
 library(MASS)
@@ -45,17 +50,19 @@ r.squaredGLMM(m)
 print("How far the model is from a perfect model, where 1 is the optimal number: ")
 1-m$deviance / m$null.deviance
 ```
-When looking at the estimates. The intercept is when all 3 predictors are 0. The estimated value for effort is 0.477, the exponential of this is 1.611, meaning that when the effort increases by 1 the bee count increases with 61%. For Altidude this number is (exp(0.00175) = 1.00175) 0.2% and for MAT it is (exp(0.0349) = 1.0355) 3.6%. Standard deviation is around 13% for effort, 25% for altitude and 21% for MAT. 
+
+When looking at the estimates. The intercept is the expected log-count when all 3 predictors are 0. The model is log(bees) = -6.1804249 + 0.4771237\*effort + 0.0017500\*altitude + 0.0349172\*MAT. The intercept (-6.1804249 ) is the log expected number of beed when effort, altitidude and MAT is zero. This value is usually outside the realistic range and does not have any biological meaning. The expected count can be calculated as exp(-6.1804249) = 0.00207 individuals.\
+The estimated value for effort is 0.477, the exponential of this is 1.611, meaning that when the effort increases by 1 the bee count increases with 61%. For Altidude this number is (exp(0.00175) = 1.00175) 0.2% and for MAT it is (exp(0.0349) = 1.0355) 3.6%. Standard deviation is around 13% for effort, 25% for altitude and 21% for MAT.
 
 From this model summary we can see that the residual deviance and the degrees of freedom are much closer and thus this model is a better fit.\
+The z value is the coefficient divided by its standard error. z = estimate / std error. Large absolute value of z indicated strong evidence that the coefficient is different from 0.\
+The number of fisher scoring iterations shows the number of iterations the maximum likelihood algorithm need to converge. Numbers below 20 means that the model fitting algorithm converged smoothly.
 \
-Side note : When we make a model with several predictors like this, what the model does is that it makes the regression for each one of the predictors while holding the others constant. SO it is not a combined regression for all 3 predicors, but its more liek three models that holds one predictor constant and then makes three predictions. 
-## Plot the results
-Effort
-MAT
-Altitude
+Side note : When we make a model with several predictors like this, what the model does is that it makes the regression for each one of the predictors while holding the others constant. SO it is not a combined regression for all 3 predicors, but its more liek three models that holds one predictor constant and then makes three predictions. \
+## Plot the results Effort MAT Altitude
 
 Install and load packaged that are needed to make predictions and then plot the results.
+
 ```{r}
 #install.packages("ggeffects")
 library(ggeffects)
@@ -63,13 +70,17 @@ library(ggplot2)
 ```
 
 Make a prediction of y (bee counts) from the predictor "effort". This is done while holding the predictors MAT and altitude constant. This ggpredict function does the same as the base R predict function if you use a datagrid as newdata (which you do when you have multiple predictors)\
-When the model is fitted the data is automatically log linked for this model using the natural logratim. When using the ggpredict the data is also automatically transformed back to its original scale. 
+When the model is fitted the data is automatically log linked for this model using the natural logratim. When using the ggpredict the data is also automatically transformed back to its original scale.
+
 ```{r}
 pred_effort <-  ggpredict(m, terms = "effort")
 pred_effort
 ```
+
 ### Effort
+
 Make the plot for predicted bee count plotted against effort.
+
 ```{r}
 # First plot the predicted counts based on the effort level, this is the natural logarithm regression line
 ggplot(pred_effort, aes(x = x, y = predicted)) +
@@ -84,7 +95,9 @@ ggplot(pred_effort, aes(x = x, y = predicted)) +
   theme(axis.title =element_text(size=20))
 
 ```
+
 ### MAT
+
 ```{r}
 # Make the prediction with MAT as preditor and effort and altitude held constant
 pred_MAT <-  ggpredict(m, terms = "MAT")
@@ -105,6 +118,7 @@ ggplot(pred_MAT, aes(x = x, y = predicted)) +
   theme(axis.title =element_text(size=20))
 
 ```
+
 ### Altitude
 
 ```{r}
@@ -128,9 +142,7 @@ ggplot(pred_altitude, aes(x = x, y = predicted)) +
 
 ```
 
-
 ```{r}
 
 
 ```
-
