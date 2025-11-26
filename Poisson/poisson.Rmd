@@ -26,6 +26,22 @@ plot(bees$MAT, bees$Eulaema_nigrita, pch = 16, cex = 0.6)
 plot(bees$effort, bees$Eulaema_nigrita, pch = 16, cex = 0.6)
 ```
 
+Check for over dispersion.\
+Poisson assumes that the variance = mean
+```{r}
+mean(bees$Eulaema_nigrita)
+var(bees$Eulaema_nigrita)
+```
+So that is really bad results. I do make the poisson model anyways. And after also looking at residual deviance compared to the degrees of freedom it confirms over dispearsion and then I make a negative binomial model. \
+\
+Check for colinearity in predictors
+```{r}
+cor(bees[, c("effort", "altitude", "MAT")])
+car::vif(m)
+
+
+```
+
 ## Fit the poisson model
 
 The model automatically transforms the data with the natrual logratihm because the choosen family is poisson.
@@ -142,7 +158,10 @@ ggplot(pred_altitude, aes(x = x, y = predicted)) +
 
 ```
 
+Check residuals
 ```{r}
+plot(m$fitted.values, residuals(m, type="deviance"))
+abline(h=0)
 
 
 ```
