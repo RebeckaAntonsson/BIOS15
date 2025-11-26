@@ -25,38 +25,66 @@ plot(bees$altitude, bees$Eulaema_nigrita, pch = 16, cex = 0.6)
 plot(bees$MAT, bees$Eulaema_nigrita, pch = 16, cex = 0.6)
 plot(bees$effort, bees$Eulaema_nigrita, pch = 16, cex = 0.6)
 ```
+From the histogram above you can see that there are no negative values (= the data is count values).
+```{r}
+# Check if there are any decimals (= non integears)
+class(bees$Eulaema_nigrita)
 
+# There is one very high value, check out which one that is
+bees[bees$Eulaema_nigrita > 800, ]
+# I notice that the altitude and the effort is extrodinary high for this sample, compared to the once in "head" above.
+
+summary(bees$effort)
+summary(bees$altitude)
+
+boxplot(bees$effort)
+boxplot(bees$altitude)
+
+```
+Since the data point (sample 142) have an extraordinary high count, but also a high altitude and high effort this might actually be a real data point. Not a mistake in putting in the numbers or similar. If all values in the row for this sample would be unusual that would also be a reason to be suspicious, but they are not. So I will continue with not removing this data point, as I belive it is real data.\
+\
 Check for over dispersion.\
 Poisson assumes that the variance = mean
 ```{r}
 mean(bees$Eulaema_nigrita)
 var(bees$Eulaema_nigrita)
 ```
-So that is really bad results. I do make the poisson model anyways. And after also looking at residual deviance compared to the degrees of freedom it confirms over dispearsion and then I make a negative binomial model. \
+So that is really bad results. I do make the poisson model anyways. And after also looking at residual deviance compared to the degrees of freedom it confirms over dispersion and then I make a negative binomial model. \
 \
-Check for colinearity in predictors
+Check how many 0 counts there are, because many 0's can effect the model results
 ```{r}
-cor(bees[, c("effort", "altitude", "MAT")])
-car::vif(m)
-
+sum(bees$Eulaema_nigrita == 0)
+sum(bees$Eulaema_nigrita)
+```
+There is only 7 0's out of 14443 values, so that will no effect the models results. \
+\
+Check the distribution of the three predictors
+```{r}
+par(mfrow = c(1,3))
+hist(bees$effort, main = "", xlab = "Effort" , cex.lab = 2, col = "darkblue")
+hist(bees$altitude, main = "", xlab = "Altitude", ylab = "", cex.lab = 2, col = "darkred")
+hist(bees$MAT, main = "", xlab = "MAT", ylab = "", cex.lab = 2, col = "darkgreen" )
 
 ```
 
 ## Fit the poisson model
 
-The model automatically transforms the data with the natrual logratihm because the choosen family is poisson.
+The model automatically transforms the data with the natural logarithm because the choose family is poisson.
 
 ```{r}
 m = glm(Eulaema_nigrita~effort+altitude+MAT, family = "poisson", data=bees)
 summary(m)
 ```
 
-We can see here that the residual deviance is 16998 and the degress od freedom is 174. So the deviance is much larger than the degrees of freedom which means that the variance increases unproportional to the mean. Therefore we will have to use a negative binomal error distribution instead.\
-\## Negative binomal
-
+We can see here that the residual deviance is 16998 and the degrees of freedom is 174. So the deviance is much larger than the degrees of freedom which means that the variance increases unproportional to the mean. Therefore we will have to use a negative binomial error distribution instead.\
+\
+## Fit negative binomal model
 ```{r}
 library(MASS)
 library(MuMIn)
+```
+
+```{r}
 m = glm.nb(Eulaema_nigrita~effort+altitude+MAT, data=bees)
 summary(m)
 # Calculate the pseudo R square
@@ -67,14 +95,14 @@ print("How far the model is from a perfect model, where 1 is the optimal number:
 1-m$deviance / m$null.deviance
 ```
 
-When looking at the estimates. The intercept is the expected log-count when all 3 predictors are 0. The model is log(bees) = -6.1804249 + 0.4771237\*effort + 0.0017500\*altitude + 0.0349172\*MAT. The intercept (-6.1804249 ) is the log expected number of beed when effort, altitidude and MAT is zero. This value is usually outside the realistic range and does not have any biological meaning. The expected count can be calculated as exp(-6.1804249) = 0.00207 individuals.\
-The estimated value for effort is 0.477, the exponential of this is 1.611, meaning that when the effort increases by 1 the bee count increases with 61%. For Altidude this number is (exp(0.00175) = 1.00175) 0.2% and for MAT it is (exp(0.0349) = 1.0355) 3.6%. Standard deviation is around 13% for effort, 25% for altitude and 21% for MAT.
-
+When looking at the estimates. The intercept is the expected log-count when all 3 predictors are 0. The model is log(bees) = -6.1804249 + 0.4771237\*effort + 0.0017500\*altitude + 0.0349172\*MAT. The intercept (-6.1804249 ) is the log expected number of bees when effort, altitude and MAT is zero. This value is usually outside the realistic range and does not have any biological meaning. The expected count can be calculated as exp(-6.1804249) = 0.00207 individuals.\
+The estimated value for effort is 0.477, the exponential of this is 1.611, meaning that when the effort increases by 1 the bee count increases with 61%. For Altitude this number is (exp(0.00175) = 1.00175) 0.2% and for MAT it is (exp(0.0349) = 1.0355) 3.6%. Standard deviation is around 13% for effort, 25% for altitude and 21% for MAT.\
 From this model summary we can see that the residual deviance and the degrees of freedom are much closer and thus this model is a better fit.\
 The z value is the coefficient divided by its standard error. z = estimate / std error. Large absolute value of z indicated strong evidence that the coefficient is different from 0.\
 The number of fisher scoring iterations shows the number of iterations the maximum likelihood algorithm need to converge. Numbers below 20 means that the model fitting algorithm converged smoothly.
 \
-Side note : When we make a model with several predictors like this, what the model does is that it makes the regression for each one of the predictors while holding the others constant. SO it is not a combined regression for all 3 predicors, but its more liek three models that holds one predictor constant and then makes three predictions. \
+Side note : When we make a model with several predictors like this, what the model does is that it makes the regression for each one of the predictors while holding the others constant. So it is not a combined regression for all 3 predictors, but its more like three models that holds one predictor constant and then makes three predictions. \
+\
 ## Plot the results Effort MAT Altitude
 
 Install and load packaged that are needed to make predictions and then plot the results.
@@ -100,14 +128,17 @@ Make the plot for predicted bee count plotted against effort.
 ```{r}
 # First plot the predicted counts based on the effort level, this is the natural logarithm regression line
 ggplot(pred_effort, aes(x = x, y = predicted)) +
-  geom_line(size = 1) + # make the plot a line
+  geom_line(size = 1, col = "darkblue") + # make the plot a line
   # ribbon is the confidence interval. The data used here is the pred_effort, which has a column conf.low and conf.high. Alpha 0.2 gives the transparacy of the ribbon
-  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, fill = "darkblue") +
   # Below points fromt the raw data is added to the plot. 
-  geom_point(data = bees, aes(x = effort, y = Eulaema_nigrita),
+  geom_point(data = bees, 
+             aes(x = effort, y = Eulaema_nigrita),
+             col = "darkblue",
              inherit.aes = FALSE) +
   labs(x = "Effort",
        y = "Predicted bee count") +
+  theme_classic() +
   theme(axis.title =element_text(size=20))
 
 ```
@@ -123,12 +154,13 @@ pred_MAT
 # Plot the results
 # Plot prediction
 ggplot(pred_MAT, aes(x = x, y = predicted)) +
-  geom_line(size = 1) + # make the plot a line
+  geom_line(size = 1, col = "darkgreen") + # make the plot a line
   # Add confidence interval
-  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, fill = "darkgreen") +
   # add raw data points 
   geom_point(data = bees, aes(x = MAT, y = Eulaema_nigrita),
-             inherit.aes = FALSE) +
+             inherit.aes = FALSE,
+             col = "darkgreen") +
   labs(x = "Mean Average Temperature",
        y = "Predicted bee count") +
   theme(axis.title =element_text(size=20))
@@ -146,12 +178,14 @@ pred_altitude
 # Plot the results
 # Plot prediction
 ggplot(pred_altitude, aes(x = x, y = predicted)) +
-  geom_line(size = 1) + # make the plot a line
+  geom_line(size = 1, col = "darkred") + # make the plot a line
   # Add confidence interval
-  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), 
+              alpha = 0.2, fill = "darkred") +
   # add raw data points 
   geom_point(data = bees, aes(x = altitude, y = Eulaema_nigrita),
-             inherit.aes = FALSE) +
+             inherit.aes = FALSE,
+             col = "darkred") +
   labs(x = "Altitude",
        y = "Predicted bee count") +
   theme(axis.title =element_text(size=20))
@@ -160,8 +194,5 @@ ggplot(pred_altitude, aes(x = x, y = predicted)) +
 
 Check residuals
 ```{r}
-plot(m$fitted.values, residuals(m, type="deviance"))
-abline(h=0)
-
-
+plot(m$deviance,m$null.deviance)
 ```
