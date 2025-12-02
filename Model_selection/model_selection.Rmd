@@ -20,6 +20,8 @@ library(MASS)
 library(MuMIn)
 # To make predictions
 library(ggeffects)
+# for the backward model selection function called regsubsets
+library(leaps)
 
 ```
 
@@ -214,4 +216,102 @@ I can see clear clustering on method, MAT
 However some of the other variables could be affected by the fact that they have some extreme values that shifts the color scale quite a lot. 
 Anyways I will do the model selection analysis looking at method and MAT
 
+# Model selection with AIC
+Check for over dispersion.\
+Poisson assumes that the variance = mean
+```{r}
+mean(bees$Eulaema_nigrita)
+var(bees$Eulaema_nigrita)
+```
+Looks like overdisperion so I will do the negative binomial model\
+\
+Make the models\
++ adds a main effect.\
+* adds both main effects and their interaction\
+Meaning:\
+A * B\
+Expands to: A + B + A:B\
+That is:\
+the effect of A\
+the effect of B\
+the interaction between A and B
+```{r}
+m1 = glm.nb(Eulaema_nigrita~effort+altitude+MAT, data=bees)
+m2 = glm.nb(Eulaema_nigrita~effort+altitude, data=bees)
+m3 = glm.nb(Eulaema_nigrita~effort+MAT, data=bees)
+m4 = glm.nb(Eulaema_nigrita~effort+altitude * method, data=bees)
+m5 = glm.nb(Eulaema_nigrita~effort+MAT * method, data=bees)
+m6 = glm.nb(Eulaema_nigrita~effort+altitude+MAT+method+MAP+Tseason+Pseason+forest.+lu_het, data=bees)
+m7 = glm.nb(Eulaema_nigrita~effort+altitude+MAT * method, data=bees)
+m8 = glm.nb(Eulaema_nigrita~effort+altitude+MAP+Tseason+Pseason+forest.+lu_het*MAT*method, data=bees)
+m9 = glm.nb(Eulaema_nigrita~effort+altitude+MAP+Tseason+Pseason+forest.+lu_het+MAT*method, data=bees)
+m10 = glm.nb(Eulaema_nigrita~effort+altitude+MAP+Tseason+Pseason+forest.+lu_het+method*MAT, data=bees)
 
+```
+
+When comparing models one can use information criteria. One of this type is AIC, which is defined as AIC = -2ln(L_hat) + 2k, where ln(L_hat) is the log likelihood of the model and k is the number of free parameters in the model. The likelihood represents the probability of the data given some parameters. The lower the AIC the better the model. Which means that the models are penalized for having many parameters (with the +2k) so that simpler models are preferd.\
+A general rule of thumb is that 2 AIC units indicates strong support.\
+Calculate the AIC for all models and compare them.
+
+```{r}
+ mlist = list(m1, m2, m3, m4, m5, m6, m7, m8, m9, m10)
+ AICTab = AIC(m1, m2, m3, m4, m5, m6, m7, m8, m9, m10)
+ AICTab = AICTab[order(AICTab$AIC, decreasing=F),]
+ AICTab
+
+```
+
+The model where all variables are all included, and without interaction effects is the best one. \
+\
+\
+# Backward selection
+I will try to use a backward selection method I used before to see if i get to the same conclusion\
+the function used here is called regsubsets, it uses RSS to fit the best model as default 
+```{r}
+backward_m <- regsubsets(
+  Eulaema_nigrita~.,
+  data=bees,
+  nvmax= 35,
+  method = "backward"
+  )
+
+# Summary the model output
+model_summary <- summary(backward_m)
+model_summary
+
+```
+
+```{r}
+# Look at the RSS of the model 
+model_summary$rss
+
+# Plot number of predictors against the RSS to see where the model has the best fit without being unnecessary large
+plot(model_summary$rss, type = "b", xlab = "Number of predictors", ylab = "RSS")
+
+
+
+```
+
+From the plot above 8 variables seems to be the best model.
+```{r}
+# Extract the coefficients of the "best" model
+# Named numeric vector
+coef_8 <- coef(backward_m, 8)
+coef_8
+
+```
+This means that if you use backward selection and RSS as a measurement the best model seems to be when all variables except lu_het are included.
+
+```{r}
+# Define the "best" formula, based on the 8 predictors
+# Get variable names (excluding intercept)
+best_vars <- names(coef_8)[-1]
+best_vars
+
+# Construct a formula automatically
+formula_best <- as.formula(
+  paste("Eulaema_nigrita~", paste(best_vars, collapse = " + "))
+)
+
+formula_best
+```
