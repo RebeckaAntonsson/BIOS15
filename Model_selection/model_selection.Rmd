@@ -1,0 +1,217 @@
+---
+title: "Model selection"
+output: html_document
+date: "2025-12-01"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+# for plotting PCA
+library(ggfortify) 
+# for negative binomial models
+library(MASS)
+library(MuMIn)
+# To make predictions
+library(ggeffects)
+
+```
+
+```{r}
+bees <- read.csv("Eulaema.csv")
+head(bees)
+```
+
+
+```{r}
+bees <- tibble(bees)
+head(bees)
+```
+
+
+# PCA
+
+One hot encode non numeric columns in the data set.
+```{r}
+# check classes of all columns
+lapply(bees, class) 
+
+# Check if the columns have any type of grouping my checking how many unique values they have
+length(bees$SA)
+length(unique(bees$SA))
+length(unique(bees$method))
+length(unique(bees$SU))
+```
+
+```{r}
+# SA have grouping (72) and method (3), but SU does not
+
+# One-hot encode SA, meaning put it into 72 columns with 1s and 0s
+bees <- bees %>% mutate(value = 1)  %>% spread(SA, value,  fill = 0 )
+
+# Make the mehtod columns into numbers
+head(bees$method)
+bees$method <- as.integer(factor(bees$method))
+head(bees$method)
+
+# Remove SU column
+bees <- bees |> select(-SU)
+
+# Check the results
+head(bees)
+
+```
+
+In the method column now, 1 = Net, 2 = NetTraps and 3 = Traps.
+
+Remove non utf8 characters from the column names
+
+
+```{r}
+# Strip all non-UTF-8 characters
+names(bees) <- iconv(names(bees), from = "", to = "UTF-8", sub = "")
+```
+
+
+```{r}
+pca_bee <- prcomp(bees, scale. = TRUE, center = TRUE, retx = TRUE)
+names(pca_bee)
+summary(pca_bee)
+# Show the weights/loadings/coefficients
+head(pca_bee$rotation)
+
+```
+```{r}
+# npcs is nr of principal components to plot, deafult is 10
+screeplot(pca_bee, type = "lines", npcs = 20)
+```
+default variances is pca_bee$sdev^2\
+THe plot shows the variance, I want to see the proportion of variances explained by each PC
+```{r}
+var_explained <- pca_bee$sdev^2
+prop_var <- var_explained / sum(var_explained)
+
+# keep only the first 20 PCs
+prop_var_20 <- prop_var[1:20]
+
+plot(prop_var_20,
+     type = "b",
+     xlab = "Principal Component",
+     ylab = "Proportion of Variance Explained",
+     main = "Scree Plot")
+
+
+```
+SO the highest proportion of variance explained is 4%. Which more or less means that the variables are not very correlated. One needs many principal components to find some linearity in the data. I will continue with trying to remove the SA columns, which are 72 columns on its on. Just to see if that makes a difference to the number of principal components needed. \
+\
+
+The plot looks exacly the same so the SA columns probably dosent have so much influence.\
+
+Visualize PCA
+```{r}
+biplot(pca_bee, main = "Biplot of Principal Components", scale = 0)
+```
+Compute standard deviation and variance
+```{r}
+pca_bee.var <- pca_bee$sdev^2
+
+cat("Standard Deviation :",pca_bee$sdev,"\n")
+cat("Variance :",pca_bee.var,"\n")
+```
+
+Make elbow plot
+```{r}
+
+# Variance of each PC
+var_explained <- pca_bee$sdev^2
+
+# Scree (elbow) plot
+plot(var_explained,
+     type = "b",
+     xlab = "Principal Component",
+     ylab = "Variance Explained",
+     main = "Scree Plot")
+
+```
+
+Remove SA columns\
+I could re-load the data and redo all the steps. But i think for cleanness, reproducibility for it to be easier to follow the flow of the script, I will use the tibble I created and remove the last 72 columns, which are the SA columns that I added earlier in the script.
+```{r}
+bees <- bees |> select(1:10)
+head(bees)
+```
+
+```{r}
+# Make a new PCA with the shorter tibble
+short_PCA <- prcomp(bees, scale. = TRUE, center = TRUE, retx = TRUE)
+
+# Make scree plot with proportion of variance explained
+var_explained <- short_PCA$sdev^2
+short_prop_var <- var_explained / sum(var_explained)
+
+plot(short_prop_var,
+     type = "b",
+     xlab = "Principal Component",
+     ylab = "Proportion of Variance Explained",
+     main = "Scree Plot")
+
+```
+
+visualize the pca
+```{r}
+
+# Change method column to facors so it can be plotted as three different things instead of a contious scale
+
+
+bees <- bees |> mutate(method = as_factor(method))
+
+autoplot(short_PCA,
+         data = bees,
+         colour = 'method')
+
+autoplot(short_PCA,
+         data = bees,
+         colour = 'effort')
+
+autoplot(short_PCA,
+         data = bees,
+         colour = 'altitude')
+
+autoplot(short_PCA,
+         data = bees,
+         colour = 'MAT')
+
+autoplot(short_PCA,
+         data = bees,
+         colour = 'MAP')
+
+autoplot(short_PCA,
+         data = bees,
+         colour = 'Tseason')
+
+autoplot(short_PCA,
+         data = bees,
+         colour = 'Pseason')
+
+autoplot(short_PCA,
+         data = bees,
+         colour = 'forest.')
+
+autoplot(short_PCA,
+         data = bees,
+         colour = 'lu_het')
+
+
+```
+
+I can see clear clustering on method, MAT
+However some of the other variables could be affected by the fact that they have some extreme values that shifts the color scale quite a lot. 
+Anyways I will do the model selection analysis looking at method and MAT
+
+
