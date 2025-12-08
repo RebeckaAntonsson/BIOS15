@@ -1,0 +1,123 @@
+---
+title: "Midterm"
+output: html_document
+date: "2025-12-08"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+# for plotting PCA
+library(ggfortify)
+```
+
+```{r}
+eucalyp <- read.csv("exam2023_data-2.csv")
+eucalyp <- tibble(eucalyp)
+head(eucalyp)
+```
+There are three columns that we will combine into one, they have the counts for eucalyptus in different sizes. We will just look at if eucalyptus is present or not, and therefore the columns are sumed into one.
+```{r}
+eucalyp["Total_seedings"] <- 
+  eucalyp$euc_sdlgs0_50cm + 
+  eucalyp$euc_sdlgs50cm.2m + 
+  eucalyp$euc_sdlgs.2m
+
+head(eucalyp)
+# Check that the new column sums up to correct number of seedings
+sum(eucalyp$Total_seedings)
+
+# Sum of seedings from original columns
+sum(eucalyp$euc_sdlgs0_50cm) + 
+sum(eucalyp$euc_sdlgs50cm.2m) +
+sum(eucalyp$euc_sdlgs.2m)
+```
+```{r}
+# Remove the old seeding columns
+eucalyp <- eucalyp |> select(!c(euc_sdlgs0_50cm,
+                                euc_sdlgs50cm.2m,
+                                euc_sdlgs.2m))
+head(eucalyp)
+```
+
+## PCA
+```{r}
+#Check class in all columns
+lapply(eucalyp, class)
+```
+```{r}
+# Remove character columns that definitely not needed
+eucalyp <- eucalyp |> select(!c(Date,Property,Season,SurveyID,precipitation_warmest_quarter))
+
+# Check out the two character columns
+print("Unique Aspect values")
+length(unique(eucalyp$Aspect))
+unique(eucalyp$Aspect)
+print("Unique landscape values")
+length(unique(eucalyp$Landscape.position))
+unique(eucalyp$Landscape.position)
+
+# Change them into factors
+
+eucalyp$Aspect <- as.integer(factor(eucalyp$Aspect))
+eucalyp$Landscape.position <- as.integer(factor(eucalyp$Landscape.position))
+
+# Print the new labels for Aspects and Landscape so we know wat is wat
+unique(eucalyp$Aspect)
+unique((eucalyp$Landscape.position))
+```
+Aspects\
+1 0\
+2 e\
+3 n\
+4 ne\
+5 nne\
+6 nw\
+7 s\
+8 se\
+9 sw\
+10 w\
+\
+Landscape positions\
+1 crest\
+2 flat\
+3 slope\
+4 toe_of_slope\
+\
+```{r}
+nrow(eucalyp)
+eucalyp <- na.omit(eucalyp)
+nrow(eucalyp)
+```
+
+```{r}
+# Do the PCA
+pca_eucalyp <- prcomp(eucalyp, scale. = TRUE, center = TRUE, retx = TRUE)
+names(pca_eucalyp)
+summary(pca_eucalyp)
+
+```
+
+```{r}
+# Scree plot
+# npcs is nr of principal components to plot, deafult is 10
+screeplot(pca_eucalyp, type = "lines", npcs = 33)
+
+var_explained <- pca_eucalyp$sdev^2
+prop_var <- var_explained / sum(var_explained)
+
+plot(prop_var,
+     type = "b",
+     xlab = "Principal Component",
+     ylab = "Proportion of Variance Explained",
+     main = "Scree Plot")
+
+```
+
+```{r}
+autoplot(pca_eucalyp, data = eucalyp, colour = "annual_precipitation")
+
+```
