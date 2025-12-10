@@ -289,11 +289,24 @@ m10 <- glm.nb(Total_seedings ~
             annual_precipitation,
             data = eucalyp)
 
+# Added a random effect for landscape
+m11 <- glm.nb(Total_seedings ~ 
+            annual_precipitation + 
+            Litter_cover +
+            U_ppm + 
+            ExoticPerennialGrass_cover + 
+            NativePerennialFern_cover +
+            NativePerennialGrass_cover + 
+            Distance_to_Eucalypt_canopy.m. + 
+            Th_ppm +
+            (1|Landscape.position),  
+            data = eucalyp)
+
 ```
 
 ```{r}
- mlist = list(m1, m2, m3, m4, m5, m6, m7, m8, m9, m10)
- AICTab = AIC(m1, m2, m3, m4, m5, m6, m7, m8, m9, m10)
+ mlist = list(m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11)
+ AICTab = AIC(m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11)
  AICTab = AICTab[order(AICTab$AIC, decreasing=F),]
  AICTab$delta = round(AICTab$AIC - min(AICTab$AIC), 2)
  lh = exp(-0.5*AICTab$delta)
@@ -302,3 +315,58 @@ m10 <- glm.nb(Total_seedings ~
  AICTab
 
 ```
+The model with 9 predictors (annual_precipitation, 
+            Litter_cover,
+            Landscape.position,
+            U_ppm,
+            ExoticPerennialGrass_cover,
+            NativePerennialFern_cover,
+            NativePerennialGrass_cover,
+            Distance_to_Eucalypt_canopy.m.
+            Th_ppm)
+gives the best results. 
+# Plot results
+```{r}
+predictors <- c("annual_precipitation", 
+            "Litter_cover",
+            "Landscape.position",
+            "U_ppm",
+            "ExoticPerennialGrass_cover",
+            "NativePerennialFern_cover",
+            "NativePerennialGrass_cover",
+            "Distance_to_Eucalypt_canopy.m.",
+            "Th_ppm")
+
+
+for (i in 1:length(predictors)) {
+# Make the prediction with altitude as predictor and effort and MAT held constant
+pred <-  ggpredict(m2, terms = predictors[i])
+
+
+
+# Plot the results
+# Plot prediction
+p <- ggplot(pred, aes(x = x, y = predicted)) +
+  geom_line(size = 1, col = "darkred") + # make the plot a line
+  # Add confidence interval
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), 
+              alpha = 0.2, fill = "darkred") +
+  # add raw data points 
+  geom_point(data = eucalyp, aes(x = .data[[predictors[i]]], y = Total_seedings),
+             inherit.aes = FALSE,
+             col = "darkred") +
+  labs(x = predictors[i],
+       y = "Predicted total seedings") +
+  theme(axis.title =element_text(size=20))
+
+print(p)
+
+}
+
+```
+
+```{r}
+summary(m2)
+```
+
+
