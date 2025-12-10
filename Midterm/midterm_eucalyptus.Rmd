@@ -12,6 +12,11 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 # for plotting PCA
 library(ggfortify)
+# for the backward model selection function called regsubsets
+library(leaps)
+# For negative binomial regression
+library(MASS)
+library(MuMIn)
 ```
 
 ```{r}
@@ -50,7 +55,7 @@ lapply(eucalyp, class)
 ```
 ```{r}
 # Remove character columns that definitely not needed
-eucalyp <- eucalyp |> select(!c(Date,Property,Season,SurveyID,precipitation_warmest_quarter))
+eucalyp <- eucalyp |> select(!c(Date,Property,Season,SurveyID))
 
 # Check out the two character columns
 print("Unique Aspect values")
@@ -116,8 +121,184 @@ plot(prop_var,
      main = "Scree Plot")
 
 ```
+```{r}
+sort(abs(pca_eucalyp$rotation[,1]), decreasing = TRUE)
+
+```
+
+```{r}
+install.packages("factoextra")
+library(factoextra)
+```
+```{r}
+# axes 1 means PC1
+fviz_pca_contrib(pca_eucalyp, choice = "var", axes = 1)
+```
 
 ```{r}
 autoplot(pca_eucalyp, data = eucalyp, colour = "annual_precipitation")
+
+```
+
+Remove columns, based on what is important in PC1, and based on which variables are highly correlated plus some biological weigh-ins.
+```{r}
+eucalyp <- eucalyp |> select(!c(
+  PET,
+  precipitation_coldest_quarter,
+  precipitation_warmest_quarter,
+  Northing,
+  Easting,
+  MrVBF,
+  Euc_canopy_cover
+))
+
+```
+
+# Model selection
+```{r}
+
+backward_m <- regsubsets(
+  Total_seedings~.,
+  data=eucalyp,
+  nvmax= 25,
+  method = "backward"
+  )
+
+# Summary the model output
+model_summary <- summary(backward_m)
+
+# Look at the RSS of the model 
+model_summary$rss
+
+# Plot number of predictors against the RSS to see where the model has the best fit without being unnecessary large
+plot(model_summary$rss, type = "b", xlab = "Number of predictors", ylab = "RSS")
+
+```
+```{r}
+# Extract the coefficients of the "best" model
+# Named numeric vector
+coef_10 <- coef(backward_m, 10)
+coef_10
+
+```
+```{r}
+# Define the "best" formula, based on the 8 predictors
+# Get variable names (excluding intercept)
+best_vars <- names(coef_10)[-1]
+best_vars
+
+# Construct a formula automatically
+formula_best <- as.formula(
+  paste("Total_seedings~", paste(best_vars, collapse = " + "))
+)
+
+formula_best
+```
+
+Model selection with AIC instead
+```{r}
+# check if use poisson or negative binomial
+mean(eucalyp$Total_seedings)
+var(eucalyp$Total_seedings)
+```
+
+```{r}
+# Orderd so that the one most important in PC1 is highest in the list
+m1 <- glm.nb(Total_seedings ~ 
+            annual_precipitation + 
+            Litter_cover +
+            Landscape.position +
+            U_ppm + 
+            ExoticPerennialGrass_cover + 
+            NativePerennialFern_cover +
+            NativePerennialGrass_cover + 
+            Distance_to_Eucalypt_canopy.m. + 
+            Th_ppm + 
+            ExoticAnnualGrass_cover, 
+            data = eucalyp)
+
+m2 <- glm.nb(Total_seedings ~ 
+            annual_precipitation + 
+            Litter_cover +
+            Landscape.position +
+            U_ppm + 
+            ExoticPerennialGrass_cover + 
+            NativePerennialFern_cover +
+            NativePerennialGrass_cover + 
+            Distance_to_Eucalypt_canopy.m. + 
+            Th_ppm,  
+            data = eucalyp)
+
+m3 <- glm.nb(Total_seedings ~ 
+            annual_precipitation + 
+            Litter_cover +
+            Landscape.position +
+            U_ppm + 
+            ExoticPerennialGrass_cover + 
+            NativePerennialFern_cover +
+            NativePerennialGrass_cover + 
+            Distance_to_Eucalypt_canopy.m., 
+            data = eucalyp)
+
+m4 <- glm.nb(Total_seedings ~ 
+            annual_precipitation + 
+            Litter_cover +
+            Landscape.position +
+            U_ppm + 
+            ExoticPerennialGrass_cover + 
+            NativePerennialFern_cover +
+            NativePerennialGrass_cover, 
+            data = eucalyp)
+
+m5 <- glm.nb(Total_seedings ~ 
+            annual_precipitation + 
+            Litter_cover +
+            Landscape.position +
+            U_ppm + 
+            ExoticPerennialGrass_cover +
+            NativePerennialFern_cover, 
+            data = eucalyp)
+
+m6 <- glm.nb(Total_seedings ~ 
+            annual_precipitation + 
+            Litter_cover +
+            Landscape.position +
+            U_ppm + 
+            ExoticPerennialGrass_cover,
+            data = eucalyp)
+
+m7 <- glm.nb(Total_seedings ~ 
+            annual_precipitation + 
+            Litter_cover +
+            Landscape.position +
+            U_ppm, 
+            data = eucalyp)
+
+m8 <- glm.nb(Total_seedings ~ 
+            annual_precipitation + 
+            Litter_cover +
+            Landscape.position, 
+            data = eucalyp)
+
+m9 <- glm.nb(Total_seedings ~ 
+            annual_precipitation + 
+            Litter_cover, 
+            data = eucalyp)
+
+m10 <- glm.nb(Total_seedings ~ 
+            annual_precipitation,
+            data = eucalyp)
+
+```
+
+```{r}
+ mlist = list(m1, m2, m3, m4, m5, m6, m7, m8, m9, m10)
+ AICTab = AIC(m1, m2, m3, m4, m5, m6, m7, m8, m9, m10)
+ AICTab = AICTab[order(AICTab$AIC, decreasing=F),]
+ AICTab$delta = round(AICTab$AIC - min(AICTab$AIC), 2)
+ lh = exp(-0.5*AICTab$delta)
+ AICTab$w = round(lh/sum(lh), 2)
+ 
+ AICTab
 
 ```
