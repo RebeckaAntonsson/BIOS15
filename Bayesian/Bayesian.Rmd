@@ -1,0 +1,67 @@
+---
+title: "Bayesian"
+output: html_document
+date: "2025-12-15"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+install.packages("Hmsc")
+install.packages("glmmTMB")
+```
+
+```{r}
+library(Hmsc)
+library(tidyverse)
+```
+
+```{r}
+dat = read.csv("Eulaema.csv")
+dat$SA = as.factor(dat$SA)
+dat$method = as.factor(dat$method)
+XData = data.frame(dat[,4:12])
+studyDesign = data.frame(SA = dat$SA)
+rL1 = HmscRandomLevel(units = dat$SA)
+m2 = Hmsc(Y = as.matrix(dat$Eulaema_nigrita), XData = XData, XFormula = ~forest.,
+studyDesign = studyDesign, ranLevels = list(SA = rL1),
+distr="poisson")
+m2 = sampleMcmc(m2, samples=1000, transient=5000, thin=5,
+nChains=2, nParallel=2, verbose=500)
+save(m2, file="m2.RData")
+load("m2.RData")
+mpost = convertToCodaObject(m2)
+plot(mpost$Beta)
+
+```
+
+```{r}
+effectiveSize(mpost$Beta)
+```
+
+```{r}
+gelman.diag(mpost$Beta, multivariate=F)$psrf
+
+```
+
+```{r}
+summary(mpost$Beta)
+```
+
+Compare the results to your previous results from the GLM exercise, and to a model fitted using maximum
+likelihood.
+
+```{r}
+library(glmmTMB)
+```
+
+```{r}
+m1 = glmmTMB(Eulaema_nigrita ~ forest. + (1|SA), REML=F, family="poisson", data=dat)
+summary(m1)
+```
+Write the results with emphasis on interpreting the parameter estimates and their credible intervals.
+
+The intecept estimate is 3.21 for the bayesian method and 2.90 for the poisson model. For the slope (forest) the bayesian esimate is 0.80 and for poisson it is 1.80. The confience interval at 97.5 % on the bayesian method is not even as high as the esimated value for poisson. So these resultsa are really far away from each other. For the intercept however the two models show similar results. The estiamte for the intercept in the poisson model is within the credible interval for the bayesian model estimates. 
+
