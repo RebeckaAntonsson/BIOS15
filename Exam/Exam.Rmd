@@ -1,0 +1,235 @@
+---
+title: "Exam"
+output: html_document
+date: "2026-01-01"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Investigating what features effects the fitness the most.
+Fitness is the response variable and it is contiuous, therefore a 
+
+
+## Load libraries
+```{r}
+# collection if packages for data science, for example includes dplyr and ggplot
+library(tidyverse)
+# for plotting PCA
+library(ggfortify)
+# for plotting varaince explained PCA
+library(factoextra)
+# for the backward model selection function called regsubsets
+library(leaps)
+# for plotting correlation matrix
+library(corrplot)
+# to make linear mixed models
+library(glmmTMB)
+# for predicting
+library(ggeffects)
+```
+
+## Load and investigate data
+Load the input data
+```{r}
+penstemon <-  read.table("penstemon-1.txt", header=T)
+# make the data into a tibble (other type of data frame)
+penstemon <- tibble(penstemon)
+```
+Investigate the data
+```{r}
+head(penstemon)
+nrow(penstemon)
+# Plot histogram of the response variable
+hist(penstemon$fitness)
+```
+Investigate how the response variable (fitness) varies in the different population groups. This is investigated since I plan to use it as a random variable.
+```{r}
+ggplot(penstemon, aes(x = fitness, fill = Pop)) +
+  geom_boxplot()
+```
+
+
+## PCA
+```{r}
+# Check the class i all columns, this is done because all values needs to be numeric or integer to perform a PCA
+lapply(penstemon, class)
+
+```
+
+```{r}
+# Do the PCA
+# The PCA is performed on all features except population since I will use it as a random variable
+pca_df <- penstemon
+pca_df$Pop <- as.integer(factor(pca_df$Pop))
+pca <- prcomp(pca_df, scale. = TRUE, center = TRUE, retx = TRUE)
+# print the summary of the PCA
+summary(pca)
+
+# Scree plot
+# first calculate the variance explained by each principal component
+var_explained <- pca$sdev^2
+# Divide that with the total variance explained to get the proportional variance explained
+prop_var <- var_explained / sum(var_explained)
+
+# Plot the number of principal components against the proportion of variance that is explained
+plot(prop_var,
+     type = "b",
+     xlab = "Principal Component",
+     ylab = "Proportion of Variance Explained",
+     main = "Scree Plot")
+
+```
+From the summary of the pca one can see that the standard deviation for PC1 is around 2 and decrease slightly for each principal component added. The decrease in standard deviation is of course expected and in this case the decrease is very small. A quite high proportion of the variance in the data is explained by only one principal component (33.88%). Looking at the cumulative proportion of variance explained two principal components is enough to explain 51.27% of the variance in the data.\
+In the Scree plot it is clear that one principal component explain most of the variance and after each added dimension (principal component) does not increase the variance explained a lot. 
+
+Show a list of how much each column explain the variance of the data for the three first PC's, which all explain more than 10% of the proportional variance.
+```{r}
+print("PC1")
+sort(abs(pca$rotation[,1]), decreasing = TRUE)
+print("PC2")
+sort(abs(pca$rotation[,2]), decreasing = TRUE)
+print("PC3")
+sort(abs(pca$rotation[,3]), decreasing = TRUE)
+```
+What this numbers means is that if with only one dimension this data should be explained, then the fitness is the most important feature to explain the variance. However, fruits and flowers have almost as much influence on the direction of the principal component. When a dimension is added (PC2) to the two most important features to explain the variance in the data are Pop and aborted . It is important to understand that Pop and aborted is the most important features when one PC is added to the already existed PC1 and not overall the most important features.\
+\
+Most empathizes will be put on the first PC, however adding PC3 and PC3 does get the proportional variance explained up to ~60% and therefore some value will be put into these PC's as well.\
+\
+Visualization of the numbers above
+
+```{r}
+# axes 1 means PC1
+fviz_contrib(pca, choice = "var", axes = 1)
+
+fviz_contrib(pca, choice = "var", axes = 2)
+
+fviz_contrib(pca, choice = "var", axes = 3)
+
+``` 
+
+
+## Correlation matrix
+A correlation matrix is made to see which of the features are highly correlated and 
+
+## Correlation matrix
+```{r}
+# creating correlation matrix
+correlation <- cor(pca_df)
+# Correlation matrix visualisation
+corrplot(correlation, method="circle")
+# List of highest correlations
+corr_list <- correlation %>%
+  as.data.frame() %>%
+  mutate(var1 = rownames(.)) %>%
+  pivot_longer(-var1, names_to = "var2", values_to = "corr") %>%
+  filter(var1 < var2) %>%
+  arrange(desc(abs(corr)))
+
+corr_list
+```
+
+
+
+## Model selection
+
+Ordering the columns with the one with highest correlation first, so that is picked first in the model selection
+```{r}
+penstemon <- penstemon |> dplyr::select(fitness, fruits, flowers, openflws, tscent, height,Block,FlwDate, InflorLen,flwsize,aborted,Pop)
+
+```
+
+## Backward selection
+```{r}
+backward_m <- regsubsets(
+  fitness~.,
+  data=penstemon,
+  method = "backward"
+  )
+
+# Summary the model output
+model_summary <- summary(backward_m)
+
+# Look at the RSS of the model 
+model_summary$rss
+
+# Plot number of predictors against the RSS to see where the model has the best fit without being unnecessary large
+plot(model_summary$rss, type = "b", xlab = "Number of predictors", ylab = "RSS")
+
+
+```
+
+```{r}
+coef_2 <- coef(backward_m, 2)
+coef_2
+# Get variable names (excluding intercept)
+best_vars <- names(coef_2)[-1]
+# Construct a formula automatically
+formula_best <- as.formula(
+  paste("fitness~", paste(best_vars, collapse = " + "))
+)
+
+formula_best
+```
+
+## Forward Selection with AIC
+```{r}
+
+results <- vector("list", length(predictors))
+AICTab  <- data.frame(
+  model = seq_along(predictors),
+  AIC = NA_real_,
+  logLik = NA_real_
+)
+
+for (i in seq_along(predictors)) {
+  pred <- paste(predictors[1:i], collapse = " + ")
+  formula <- as.formula(paste("fitness ~", pred))
+  fit <- glmmTMB(formula, data = penstemon)
+  
+  results[[i]] <- fit
+  AICTab$AIC[i]   <- AIC(fit)
+  AICTab$logLik[i] <- as.numeric(logLik(fit))
+}
+
+AICTab = AICTab[order(AICTab$AIC, decreasing=F),]
+AICTab$delta = round(AICTab$AIC - min(AICTab$AIC), 2)
+lh = exp(-0.5*AICTab$delta)
+AICTab$w = round(lh/sum(lh), 2)
+AICTab
+```
+
+
+### Plotting the results
+```{r}
+m1 <- glmmTMB(fitness~ fruits + (1|Block), data = penstemon)
+m2 <- glmmTMB(fitness~ fruits + flowers + (1|Block), data = penstemon)
+m3 <- glmmTMB(fitness~ fruits + flowers + openflws + (1|Block), data = penstemon)
+m4 <- glmmTMB(fitness~ fruits + flowers + openflws + tscent + (1|Block), data = penstemon)
+m5 <- glmmTMB(fitness~ fruits + flowers + openflws + tscent + height + (1|Block), data = penstemon)
+m6 <- glmmTMB(fitness~ fruits + flowers + openflws + tscent + height + FlwDate + (1|Block), data = penstemon)
+m7 <- glmmTMB(fitness~ fruits + flowers + openflws + tscent + height + FlwDate + InflorLen + (1|Block), data = penstemon)
+m8 <- glmmTMB(fitness~ fruits + flowers + openflws + tscent + height + FlwDate + InflorLen + flwsize + (1|Block), data = penstemon)
+m9 <- glmmTMB(fitness~ fruits + flowers + openflws + tscent + height + FlwDate + InflorLen + flwsize + aborted + (1|Block), data = penstemon)
+m10 <- glmmTMB(fitness~ fruits + flowers + openflws + tscent + height + FlwDate + InflorLen + flwsize + aborted + Pop + (1|Block), data = penstemon)
+
+
+
+mlist = list(m1, m2, m3, m4, m5, m6, m7, m8, m9, m10)
+AICTab = AIC(m1, m2, m3, m4, m5, m6, m7, m8, m9, m10)
+AICTab = AICTab[order(AICTab$AIC, decreasing=F),]
+AICTab$delta = round(AICTab$AIC - min(AICTab$AIC), 2)
+lh = exp(-0.5*AICTab$delta)
+AICTab$w = round(lh/sum(lh), 2)
+ 
+AICTab
+
+```
+
+```{r}
+
+
+```
+
+
